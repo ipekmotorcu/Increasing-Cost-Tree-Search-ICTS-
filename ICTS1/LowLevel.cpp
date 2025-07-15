@@ -1,4 +1,4 @@
-﻿
+﻿#include <iostream>
 #include "LowLevel.h"
 #include "Position.h"
 #include <set>
@@ -11,9 +11,13 @@
 #include "Position.h"
 //#include "MDD.h"
 #include <vector>
+#include <agents.h>
+#include "ICTNode.h"
 using namespace std;
+std::unordered_map<LowLevel::CacheKey, LowLevel::MDD, LowLevel::CacheKeyHash> LowLevel::mddCache;
 
 
+//std::unordered_map<LowLevel::CacheKey, MDD, LowLevel::CacheKeyHash> LowLevel::mddCache; LowLevel::CacheKey key = std::make_tuple(agents[i].getStart(), agents[i].getGoal(), costs[i]);
 
 /*Her ajan için ayrı ayrı MDD oluşturuyoruz
 
@@ -37,16 +41,26 @@ void printMDDs(const std::vector<std::vector<std::unordered_set<Position>>>& mdd
         }
     }
 }
-static MDD buildMDD(const Grid& grid, const Position& start, const Position& goal, int cost, int maxCost) {
-    MDD levels(maxCost + 1);//+1 olmalı mı düşün!
+
+
+static LowLevel::MDD buildMDD(const Grid& grid, const Position& start, const Position& goal, int cost, int maxCost) {
+
+    LowLevel::CacheKey key = { start, goal, cost };
+
+    // Önceden hesaplandıysa cache'den al
+    auto it = LowLevel::mddCache.find(key);
+    if (it != LowLevel::mddCache.end()) {
+        return it->second; // Cache hit
+    }
+
+    // Yeni MDD oluştur
+    MDD levels(maxCost + 1); // MDD[0..maxCost]
     std::queue<std::pair<Position, int>> q;
     q.push({ start, 0 });
     levels[0].insert(start);
 
     while (!q.empty()) {
-        pair<Position, int> p = q.front();
-        Position curr = p.first;
-        int t = p.second;
+        auto [curr, t] = q.front();
         q.pop();
         if (t >= cost) continue;
 
@@ -59,19 +73,25 @@ static MDD buildMDD(const Grid& grid, const Position& start, const Position& goa
             q.push({ curr, t + 1 });
     }
 
+    // Hedefe ulaşılamıyorsa boş dön
     if (!levels[cost].count(goal)) return {};
-    for (auto it = levels[cost].begin(); it != levels[cost].end();) {//verilen costa ulaşıldığında hedefte değilse sil hedef olmayanları
-        if (*it != goal) {
+
+    // cost seviyesinde hedefe ulaşmayan pozisyonları temizle
+    for (auto it = levels[cost].begin(); it != levels[cost].end();) {
+        if (*it != goal)
             it = levels[cost].erase(it);
-        }
         else
             ++it;
-    }//dummy node ekledim hedefe ulaşıp da bekleme ihtimalleri için yoksa çözüm bulunamadı sanılıyor
-    if (cost < maxCost) {
-        for (int i = cost; i <= maxCost; ++i) {
-            levels[i].insert(goal);
-        }
     }
+
+    // Dummy hedef ekle: goal'da bekleme ihtimali için
+    if (cost < maxCost) {
+        for (int i = cost + 1; i <= maxCost; ++i)
+            levels[i].insert(goal);
+    }
+
+    //  Cache'e ekle ve döndür
+    LowLevel::mddCache[key] = levels;
     return levels;
 }
 /*
@@ -131,7 +151,7 @@ static bool dfsCrossProduct(const std::vector<MDD>& mdds,
                         std::cout << " Agent " << i << " not at goal! curr=" << curr[i].x << "," << curr[i].y << " goal=" << agents[i].getGoal().x << std::endl;
                         return false;
                     }
-                std::cout << "All agents reached goal at t=" << time << std::endl;
+                //std::cout << "All agents reached goal at t=" << time << std::endl;
                 return true;
             }
 
@@ -409,7 +429,6 @@ bool enhancedPairwisePruning(std::vector<MDD>& mdds, const std::vector<Agent>& a
 bool LowLevel::verify(const std::vector<Agent>& agents, const Grid& grid,
     const std::vector<int>& costs,
     std::vector<std::vector<Position>>& out_paths, int& ICTNodesNonGoal) {
-
     int k = agents.size();
     int maxCost = *std::max_element(costs.begin(), costs.end());
     int maxDepth = maxCost;
@@ -425,26 +444,27 @@ bool LowLevel::verify(const std::vector<Agent>& agents, const Grid& grid,
     }//printMDDs(mdds);
 
 //pruning
-   //simple
-    /*if (simplePairwisePruning(mdds) ){//pruning başarılı ise low level'ı çalıştırmaya gerek yok false döndür
-       // cout << "Pruning is succesful." << endl;
-        return false;
-    }
-    else {
-       // cout << "Pruning is not succesful" << endl;
-        ICTNodesNonGoal++;//prune edilemeyen node sayısını 1 artır
-    }*/
+  // simple
+    //if (simplePairwisePruning(mdds) ){//pruning başarılı ise low level'ı çalıştırmaya gerek yok false döndür
+    //   // cout << "Pruning is succesful." << endl;
+    //    return false;
+    //}
+    //else {
+    //   // cout << "Pruning is not succesful" << endl;
+    //    ICTNodesNonGoal++;//prune edilemeyen node sayısını 1 artır
+    //}
     if (enhancedPairwisePruning(mdds, agents, grid)) {//pruning başarılı ise low level'ı çalıştırmaya gerek yok false döndür
-        // cout << "Pruning is succesful." << endl;
+        //  cout << "Pruning is succesful." << endl;
         return false;
     }
     else {
         // cout << "Pruning is not succesful" << endl;
         ICTNodesNonGoal++;//prune edilemeyen node sayısını 1 artır
     }
+   // ICTNodesNonGoal++;
 
-    // cout << "After Enhanced Pruning................" << endl;
-    // printMDDs(mdds);
+     // cout << "After Enhanced Pruning................" << endl;
+     // printMDDs(mdds);
 
 
     std::vector<Position> curr(k);

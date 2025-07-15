@@ -4,6 +4,7 @@
 #include <queue>
 #include <set>
 #include <numeric>
+#include <chrono>
 using namespace std;
 
 static vector <int> computeSICHeuristic(const vector<Agent>& agents, const Grid& grid) {//burada hata var san�r�m!!
@@ -30,9 +31,9 @@ static vector <int> computeSICHeuristic(const vector<Agent>& agents, const Grid&
 		costs.push_back(dist);
 	}
 
-	cout << "SIC Heuristic(Root Costs):";
+	/*cout << "SIC Heuristic(Root Costs):";
 	for (int cost : costs) cout << cost << " ";
-	std::cout << std::endl;
+	std::cout << std::endl;*/
 
 	return costs;
 	/*//engel yoksa
@@ -44,7 +45,8 @@ static vector <int> computeSICHeuristic(const vector<Agent>& agents, const Grid&
 	return costs;*/
 }
 
-void printGridWithPaths(const Grid& grid, const std::vector<std::vector<Position>>& paths) {//Grid'i yazd�rmak i�in yazd�m
+
+void HighLevel::printGridWithPaths(const Grid& grid, const std::vector<std::vector<Position>>& paths) {//Grid'i yazd�rmak i�in yazd�m
 	int rows = grid.getHeight();
 	int cols = grid.getWidth();
 	std::vector<std::vector<char>> visual(rows, std::vector<char>(cols, '.'));
@@ -85,7 +87,11 @@ void printGridWithPaths(const Grid& grid, const std::vector<std::vector<Position
 	}
 
 }
-bool HighLevel::solve(const vector<Agent>& agents, const Grid& grid, int& totalCostOut, int& expandedCountOut, int& ICTNodesNonGoal, int& depth, std::vector<std::vector<Position>>& out_paths) {//? uygun path bulunamazsa high level ICT tree'ye node eklemeyi ne zaman b�rakacak
+bool HighLevel::solve(const vector<Agent>& agents, const Grid& grid, int& totalCostOut, int& expandedCountOut, int& ICTNodesNonGoal, int& depth, vector<vector<Position>>& out_paths) {//? uygun path bulunamazsa high level ICT tree'ye node eklemeyi ne zaman b�rakacak
+	LowLevel::mddCache.clear();
+
+	auto start = std::chrono::high_resolution_clock::now();
+
 	int k = agents.size();
 
 	vector <int> rootCosts = computeSICHeuristic(agents, grid);
@@ -94,9 +100,15 @@ bool HighLevel::solve(const vector<Agent>& agents, const Grid& grid, int& totalC
 	priority_queue<ICTNode> pq;
 	pq.push(ICTNode(rootCosts));
 	set<vector<int>> visited;//unordered set de olabilir
-	expandedCountOut = 0;
+	//expandedCountOut=0;
 	int i = 0;
 	while (!pq.empty()) {
+		auto end = std::chrono::high_resolution_clock::now();
+		double duration = std::chrono::duration<double, std::milli>(end - start).count();
+		if (duration > 300000.0) {//5 dakika
+			cout << "Time out" << endl;
+			return false;
+		}
 		ICTNode node = pq.top();
 		pq.pop();
 
@@ -108,31 +120,32 @@ bool HighLevel::solve(const vector<Agent>& agents, const Grid& grid, int& totalC
 		//pathleri kaydetmek i�in
 		std::vector<std::vector<Position>> paths;
 		if (LowLevel::verify(agents, grid, node.costs, paths, ICTNodesNonGoal)) {
-			totalCostOut = std::accumulate(node.costs.begin(), node.costs.end(), 0);//numeric(ICT Node'undaki costlar� topluyor ve toplam costu buluyor
 			out_paths = paths;
-			/*cout << "Agent Paths:\n";
-			for (int i = 0; i < k; ++i) {//!!!
-				cout << "Agent " << i << ": ";
-				for (const auto& p : paths[i]) {
-					std::cout << "(" << p.x << "," << p.y << ") ";
-				}
-				std::cout << std::endl;
-			}*/
+			totalCostOut = std::accumulate(node.costs.begin(), node.costs.end(), 0);//numeric(ICT Node'undaki costlar� topluyor ve toplam costu buluyor
+
+			//cout << "Agent Paths:\n";
+			//for (int i = 0; i < k; ++i) {//!!!
+			//	cout << "Agent " << i << ": ";
+			//	for (const auto& p : paths[i]) {
+			//		std::cout << "(" << p.x << "," << p.y << ") ";
+			//	}
+			//	std::cout << std::endl;
+			//}
 			int optimalCost = std::accumulate(rootCosts.begin(), rootCosts.end(), 0);
 			//cout << "optimal cost:" << optimalCost << endl;
 			depth = totalCostOut - optimalCost;
 			//cout << "Printing grid ..." << endl;
-			printGridWithPaths(grid, paths);//Agent pathleri yazd�rmak i�in
+			//printGridWithPaths(grid, paths);//Agent pathleri yazd�rmak i�in
 
-			//std::cout << " Solution found with total cost: " << totalCostOut << std::endl;
+		   //std::cout << " Solution found with total cost: " << totalCostOut << std::endl;
 
-			/*for (int i = 0; i < paths.size(); ++i) {
-				std::cout << "Agent " << i << ": ";
-				for (const auto& pos : paths[i]) {
-					std::cout << "(" << pos.x << "," << pos.y << ") ";
-				}
-				std::cout << std::endl;
-			}*/
+		  /* for (int i = 0; i < paths.size(); ++i) {
+			   std::cout << "Agent " << i << ": ";
+			   for (const auto& pos : paths[i]) {
+				   std::cout << "(" << pos.x << "," << pos.y << ") ";
+			   }
+			   std::cout << std::endl;
+		   */
 
 			return true;
 		}
@@ -141,8 +154,8 @@ bool HighLevel::solve(const vector<Agent>& agents, const Grid& grid, int& totalC
 			++newCosts[i];
 			pq.push(ICTNode(newCosts));
 		}
-		cout << i << endl;
-		i++;
+		//cout << i << endl;
+		//i++;
 	}return false;
 
 
