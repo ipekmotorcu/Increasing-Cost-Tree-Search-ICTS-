@@ -20,12 +20,34 @@ static int manhattan(const Position& a, const Position& b) {
     return abs(a.x - b.x) + abs(a.y - b.y);
 }
 
-static int computeSIC(const State& current, const std::vector<Agent>& agents) {
-    int sum = 0;
-    for (int i = 0; i < agents.size(); ++i)
-        sum += manhattan(current[i], agents[i].getGoal());
-    return sum;
+static int computeSIC(const State& current, const std::vector<Agent>& agents, const Grid& grid) {
+    int total = 0;
+    for (int i = 0; i < agents.size(); ++i) {
+        std::queue<std::pair<Position, int>> q;
+        std::set<Position> visited;
+        q.push({ current[i], 0 });
+        visited.insert(current[i]);
+
+        int dist = -1;
+        while (!q.empty()) {
+            auto [pos, d] = q.front(); q.pop();
+            if (pos == agents[i].getGoal()) {
+                dist = d;
+                break;
+            }
+
+            for (const auto& nb : grid.getNeighbors(pos)) {
+                if (visited.insert(nb).second)
+                    q.push({ nb, d + 1 });
+            }
+        }
+
+        if (dist == -1) return INT_MAX;
+        total += dist;
+    }
+    return total;
 }
+
 
 static bool hasConflict(const State& a, const State& b) {
     int k = a.size();
@@ -54,7 +76,7 @@ bool AStar::solve(const std::vector<Agent>& agents, const Grid& grid,
     // her ajan için cameFrom map'i (geriye dönük path izleme)
     std::vector<std::unordered_map<Position, Position>> cameFrom(k);
 
-    open.push({ start, 0, computeSIC(start, agents) });
+    open.push({ start, 0, computeSIC(start, agents,grid) });
     expandedCount = 0;
 
     while (!open.empty()) {
@@ -102,7 +124,7 @@ bool AStar::solve(const std::vector<Agent>& agents, const Grid& grid,
         recurse = [&](int depth, State& temp) {
             if (depth == k) {
                 if (!hasConflict(node.positions, temp)) {
-                    open.push({ temp, node.g + 1, computeSIC(temp, agents) });
+                    open.push({ temp, node.g + 1, computeSIC(temp, agents,grid) });
                 }
                 return;
             }
