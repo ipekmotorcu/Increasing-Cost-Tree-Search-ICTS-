@@ -134,10 +134,10 @@ bool HighLevel::solve(const vector<Agent>& agents, const Grid& grid, int& totalC
 			int optimalCost = std::accumulate(rootCosts.begin(), rootCosts.end(), 0);
 			//cout << "optimal cost:" << optimalCost << endl;
 			depth = totalCostOut - optimalCost;
-			//cout << "Printing grid ..." << endl;
-			//printGridWithPaths(grid, paths);//Agent pathleri yazd�rmak i�in
+			cout << "Printing grid ..." << endl;
+			printGridWithPaths(grid, paths);//Agent pathleri yazd�rmak i�in
 
-		   //std::cout << " Solution found with total cost: " << totalCostOut << std::endl;
+		   std::cout << " Solution found with total cost: " << totalCostOut << std::endl;
 
 		  /* for (int i = 0; i < paths.size(); ++i) {
 			   std::cout << "Agent " << i << ": ";

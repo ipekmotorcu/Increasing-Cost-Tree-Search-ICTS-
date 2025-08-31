@@ -1,4 +1,4 @@
-﻿// id.cpp
+﻿
 #include "Agent.h"
 #include "Grid.h"
 #include "HighLevel.h"
@@ -52,7 +52,7 @@ std::vector<Position> findSingleAgentPathAStar(const Agent& agent, const Grid& g
 bool hasConflict(const vector<Position>& path1, const vector<Position>& path2) {
     int len = max(path1.size(), path2.size());
     for (int t = 0; t < len; ++t) {
-        Position p1 = (t < path1.size()) ? path1[t] : path1.back();//path size'dan b��kse sondakini d�nd�r
+        Position p1 = (t < path1.size()) ? path1[t] : path1.back();//path size'dan büükse sondakini döndür
         Position p2 = (t < path2.size()) ? path2[t] : path2.back();
         if (p1 == p2) return true;
         if (t > 0 && t < min(path1.size(), path2.size()) &&
@@ -69,22 +69,27 @@ bool groupsConflict(const vector<int>& g1, const vector<int>& g2,
     return false;
 }
 
-vector<vector<Position>> findPathICTS(const vector<Agent>& agents, const Grid& grid, int& totalCost, int& expanded, int& ICTNodesNonGoal, int& depth) {
+vector<vector<Position>> findPathICTS(const vector<Agent>& agents, const Grid& grid, int& totalCost, int& expanded, int& ICTNodesNonGoal, int& depth, bool& ICTS) {
     vector<vector<Position>> paths;
     totalCost = -1; expanded = 0; ICTNodesNonGoal = 0; depth = 0;
+    bool success = false;
+    if (ICTS) {
+        success = HighLevel::solve(agents, grid, totalCost, expanded, ICTNodesNonGoal, depth, paths);
+    }
+    else {
+        //*********AStar****************
+        success = AStar::solve(agents, grid, totalCost, expanded, paths);
+        ICTNodesNonGoal = -1; // ICTS metrikleri yok
+        depth = -1;
+    }
 
-    //bool success = HighLevel::solve(agents, grid, totalCost, expanded, ICTNodesNonGoal, depth, paths);
-   //*********AStar****************
-    bool success = AStar::solve(agents, grid, totalCost, expanded,paths);
-    ICTNodesNonGoal = -1; // ICTS metrikleri yok
-    depth = -1;
 
-    /****************************/
+
     if (!success) return {};
     return paths;
 }
-
-vector<vector<Position>> independenceDetection(const vector<Agent>& agents, const Grid& grid, int& totalCostOut, int& expandedCountOut, int& ICTNodesNonGoal, int& depth, int& maxGroupSize) {
+//yavaş olduğunu düşündüğüm hali
+vector<vector<Position>> independenceDetection(const vector<Agent>& agents, const Grid& grid, int& totalCostOut, int& expandedCountOut, int& ICTNodesNonGoal, int& depth, int& maxGroupSize, bool& ICTS) {
     int k = agents.size();
     vector<vector<int>> groups(k);
     for (int i = 0; i < k; ++i) groups[i].push_back(i);
@@ -109,7 +114,7 @@ vector<vector<Position>> independenceDetection(const vector<Agent>& agents, cons
                     vector<Agent> mergedAgents;
                     for (int idx : mergedGroup) mergedAgents.push_back(agents[idx]);
 
-                    auto mergedPaths = findPathICTS(mergedAgents, grid, totalCostOut, expandedCountOut, ICTNodesNonGoal, depth);
+                    auto mergedPaths = findPathICTS(mergedAgents, grid, totalCostOut, expandedCountOut, ICTNodesNonGoal, depth, ICTS);
                     if (mergedPaths.empty()) return {};
 
                     groups.erase(groups.begin() + j);//
@@ -129,67 +134,4 @@ vector<vector<Position>> independenceDetection(const vector<Agent>& agents, cons
     }
     return paths;
 }
-/*vector<vector<Position>> independenceDetection(const vector<Agent>& agents, const Grid& grid, int& totalCostOut, int& expandedCountOut, int& ICTNodesNonGoal, int& depth, int& maxGroupSize) {
-    int k = agents.size();
-    std::vector<std::vector<int>> groups(k);
-    for (int i = 0; i < k; ++i) groups[i].push_back(i);
 
-    std::vector<std::vector<Position>> paths(k);
-    for (int i = 0; i < k; ++i) {
-        auto p = findPathICTS({ agents[i] }, grid, totalCostOut, expandedCountOut, ICTNodesNonGoal, depth);
-        if (p.empty()) return {};
-        paths[i] = p[0];
-    }
-
-    maxGroupSize = 1;
-
-
-    std::queue<std::pair<int, int>> conflict_queue;
-    for (int i = 0; i < groups.size(); ++i)
-        for (int j = i + 1; j < groups.size(); ++j)
-            conflict_queue.emplace(i, j);
-
-    while (!conflict_queue.empty()) {
-        auto state = conflict_queue.front();
-        int i = state.first;
-        int j = state.second;
-        conflict_queue.pop();
-
-        //h�zland�rmak i�in yapt�m
-        if (i >= groups.size() || j >= groups.size()) continue; // ge�ersiz indeks olabilir
-        if (groupsConflict(groups[i], groups[j], paths)) {
-            // birle�tir
-            std::vector<int> mergedGroup = groups[i];
-            mergedGroup.insert(mergedGroup.end(), groups[j].begin(), groups[j].end());
-
-            std::vector<Agent> mergedAgents;
-            for (int idx : mergedGroup) mergedAgents.push_back(agents[idx]);
-
-            auto mergedPaths = findPathICTS(mergedAgents, grid, totalCostOut, expandedCountOut, ICTNodesNonGoal, depth);
-            if (mergedPaths.empty()) return {};
-
-            // eski gruplar� sil
-            if (j > i) {
-                groups.erase(groups.begin() + j);
-                groups.erase(groups.begin() + i);
-            }
-            else {
-                groups.erase(groups.begin() + i);
-                groups.erase(groups.begin() + j);
-            }
-            groups.push_back(mergedGroup);
-
-            for (int a = 0; a < mergedGroup.size(); ++a)
-                paths[mergedGroup[a]] = mergedPaths[a];
-
-            maxGroupSize = std::max(maxGroupSize, (int)mergedGroup.size());
-
-            // yeni grup ile di�er gruplar� tekrar kar��la�t�r
-            int newIdx = groups.size() - 1;
-            for (int g = 0; g < newIdx; ++g)
-                conflict_queue.emplace(g, newIdx);
-        }
-    }
-
-    return paths;
-}*/

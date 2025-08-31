@@ -1,0 +1,54 @@
+# Compiled object files
+*.obj
+*.o
+*.lo
+*.slo
+
+# Precompiled Headers
+*.pch
+
+# Compiled Dynamic libraries
+*.dll
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lib
+*.a
+*.la
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug / Release folders
+Debug/
+Release/
+x64/
+x86/
+[Oo]bj/
+[Bb]in/
+
+# Visual Studio files
+*.vcxproj.user
+*.vcxproj.filters
+*.vcxproj.*.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.opendb
+*.VC.db
+*.vscode/
+.vs/
+
+# Logs
+*.log
+
+# Others
+*.pdb
+*.idb
+*.ilk
+*.cache
+*.ipch
