@@ -24,5 +24,4 @@ This implementation also includes **Simple Pairwise Pruning** and **Enhanced Pai
 
 ---
 
-## 📂 Project Structure
 
